@@ -19,12 +19,14 @@ int  main ( void )
 	else  if(pid ==  0)
 	{
 		strcpy(sentence, "hola");
+		free(sentence);
 		exit(EXIT_SUCCESS);
 	}
 	else
 	{
 		wait(NULL);
 		printf("Padre: %s\n", sentence);
+		free(sentence);
 		exit(EXIT_SUCCESS);
 	}
 }

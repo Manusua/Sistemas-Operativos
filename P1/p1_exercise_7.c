@@ -64,13 +64,21 @@ void  processCat () {
     args[nArgs - 1] = NULL;
 
     if (nArgs >  1) {
-   	 
+
      /* METER CODIGO
    	 Creamos un nuevo proceso hijo y en el ejecutamos execv para ejecutar el
    	 comando cat con el vector de argumentos args. El padre debe esperar a que
    	 el hijo termine
      */
-   	 
+     pid_t pid = fork();
+     if(pid == 0){
+       char* nombre = "/bin/cat";
+       execv(nombre, args);
+       exit(EXIT_SUCCESS);
+    }
+    else{
+      wait(NULL);
+    }
     }
 
     /* Liberamos la memoria dinamica reservada por el proceso */
@@ -85,10 +93,21 @@ void  showAllFiles () {
     * Creamos un nuevo proceso hijo usando la llamada execlp y en el ejecutamos el
     * comando ls -l. El proceso padre debe de esperar a que el hijo termine.
     */
+    pid_t pid = fork();
+    if(pid == 0){
+      char* nombre = "ls";
+      char* aux1 = "ls";
+      char* aux2 = "-l";
+
+      execlp(nombre, aux1, aux2, NULL);
+      exit(EXIT_SUCCESS);
+    }
+  else wait(NULL);
 }
 
 int  main(void) {
     showAllFiles();
+
     processCat();
     exit (EXIT_SUCCESS);
 }
