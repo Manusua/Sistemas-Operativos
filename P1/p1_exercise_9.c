@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     /* Devuelve un numero aleatorio en 0 y MAX_RAND(un número alto que varia
      segun el sistema) */
     int r = rand();
-    printf("HIJO 1, Número aleatorio:%d\n", r);
+    printf("HIJO 1, Número aleatorio: %d\n", r);
     close(fd[0]);
     write(fd[1], &r, sizeof(r));
     //TODO no se si deberia eliminar aqui ya el proceso hijo
@@ -48,7 +48,6 @@ wait(NULL);
     int ran = read(fd[0], &auxi, sizeof(auxi) );
     if(ran < 0)
       exit(EXIT_FAILURE);
-    printf("%d asjfhdsaihfsa\n", auxi);
     aux2 = pipe(fd1);
     if(aux2 == -1) {
     	perror("Error creando la tuberia\n");
@@ -62,7 +61,7 @@ wait(NULL);
     close(fd[1]);
     write(fd[0], &ran, sizeof(ran));
     if(pid == 0){
-      close(fd[0]);
+      close(fd[1]);
       int rand = read(fd[0], &auxi, sizeof(auxi));
       if(rand < 0)
         exit(EXIT_FAILURE);
