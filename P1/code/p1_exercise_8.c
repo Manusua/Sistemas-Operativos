@@ -1,3 +1,14 @@
+/*
+Fichero: p1_exercise_8.c
+Autores: Manuel Suárez Román: manuel.suarezr@estudiante.uam.es, 
+     Manuel Cintado Puerta: manuel.cintado@estudiante.uam.es
+Grupo: 2202
+Fecha: 15/2/2019
+Descripción: Ejemplo de uso del ejercicio 8, NO ENTREGABLE
+*/
+
+/* Librerías utilizadas*/
+
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -5,7 +16,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include<string.h>
+#include <string.h>
 
 int main(void) {
   int fd[2];

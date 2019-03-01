@@ -7,7 +7,7 @@
 # banderas de compilacion (puede ser util cambiarlas)
 CC = gcc
 #ifdef ENTREGA
-CFLAGS = -Wall -g -I .
+CFLAGS = -Wall -g -I -pthreads.
 LDLIBS = -lm
 #else
 CFLAGS = -Wall -g -I .

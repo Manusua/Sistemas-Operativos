@@ -1,3 +1,15 @@
+/*
+Fichero: p1_exercise_7.c
+Autores: Manuel Suárez Román: manuel.suarezr@estudiante.uam.es, 
+		 Manuel Cintado Puerta: manuel.cintado@estudiante.uam.es
+Grupo: 2202
+Fecha: 15/2/2019
+Descripción: Ejercicio 7: Completar código para ejecutar comandos con las
+llamadas a execlp y execvp
+*/
+
+/* Librerías utilizadas*/
+
 /* wait and return process info */
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -7,7 +19,7 @@
 #include <stdlib.h> /* library for exec */
 #include <unistd.h>
 //for comparing strings
-#include<string.h>
+#include <string.h>
 
 /*
 * Pide al usuario una serie de ficheros separados por comas, los almacena en
@@ -71,10 +83,13 @@ void  processCat () {
    	 el hijo termine
      */
      pid_t pid = fork();
-     if(pid == 0){
+     if(pid < 0){
+       printf("Error al emplear el fork\n" );
+       exit(EXIT_FAILURE);
+     }
+     else if(pid == 0){
        char* nombre = "/bin/cat";
        execv(nombre, args);
-       exit(EXIT_SUCCESS);
     }
     else{
       wait(NULL);
@@ -85,6 +100,7 @@ void  processCat () {
     free (args);
     /* liberamos la memoria reservada por getline */
     free (fileName);
+    exit(EXIT_SUCCESS);
 }
 
 void  showAllFiles () {
@@ -94,7 +110,11 @@ void  showAllFiles () {
     * comando ls -l. El proceso padre debe de esperar a que el hijo termine.
     */
     pid_t pid = fork();
-    if(pid == 0){
+    if(pid < 0){
+      printf("Error al emplear el fork\n" );
+      exit(EXIT_FAILURE);
+    }
+    else if(pid == 0){
       char* nombre = "ls";
       char* aux1 = "ls";
       char* aux2 = "-l";
