@@ -16,7 +16,7 @@ for(i = 0; i < N; ++i){
   }
   else if( pid == 0){
     printf("Soy el proceso hijo %ld\n", (long) getpid());
-    sleep(3);
+    sleep(30);
     printf("Soy el proceso hijo %ld y me toca terminar.\n", (long) getpid());
     exit(EXIT_SUCCESS);
   }
