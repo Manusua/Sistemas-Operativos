@@ -25,9 +25,9 @@ EXEC_SOURCES = $(shell grep -l "^int main" $(SOURCES) | xargs)
 EXECS = $(shell echo $(EXEC_SOURCES) | sed -e 's:\.c[p]*::g')
 DEPS = $(shell echo $(SOURCES) | sed -e 's:\.c[p]*:\.d:g')
 
-all:	ejercicio2
+all:	ejercicio3d
 
-practica1:	ejercicio2.o
+practica1:	ejercicio3d.o
 
 # receta para hacer un .d (dependencias automaticas de tipo .h para tus .o)
 %.d : %.c
