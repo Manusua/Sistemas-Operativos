@@ -5,7 +5,7 @@
 #include <unistd.h>
 /* manejador: rutina de tratamiento de la señal SIGINT. */
 void manejador(int sig){
-printf("Señal número %d recibida \n", sig);
+printf("He conseguido capturar SIGKILL");
 fflush(stdout);
 }
 
@@ -14,12 +14,12 @@ struct sigaction act;
     act.sa_handler = manejador;
     sigemptyset(&(act.sa_mask));
     act.sa_flags =0;
-if(sigaction(SIGINT,&act,NULL)<0){
+if(sigaction(SIGKLL,&act,NULL)<0){
   perror("sigaction");
   exit(EXIT_FAILURE);
 }
 while(1){
-printf("En espera de Ctrl+C (PID = %d)\n", getpid());
+printf("En espera de SigKill (PID = %d)\n", getpid());
         sleep(9999);
 }
 }
