@@ -6,8 +6,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define N_READ 2
-#define SECS 1
+#define N_READ 10
+#define SECS 0
 
 #define SEM_LECTURA "/sem_lectura"
 #define SEM_ESCRITURA "/sem_escritura"
@@ -78,7 +78,6 @@ int main(void){
   pid = fork();
   for(i = 1; i < N_READ && pid > 0; ++i){
     pid = fork();
-    printf("hijo creado\n");
   }
 
   if(pid < 0){
@@ -86,7 +85,6 @@ int main(void){
     exit(EXIT_FAILURE);
   }
   if(pid == 0){
-    printf("HIJO\n" );
 
     sigemptyset(&(act.sa_mask));
     act.sa_handler = manejador_SIGTERM;
@@ -140,7 +138,6 @@ int main(void){
     exit(EXIT_SUCCESS);
   }
   else{
-    printf("PADRE\n" );
     /*Establezco la señal de interrupcion(SIGINT) y su comportamiento*/
     sigemptyset(&(act.sa_mask));
     act.sa_handler = manejador_SIGINT;
@@ -151,7 +148,6 @@ int main(void){
     }
 
     while(1){
-    printf("BUCLE\n" );
       if(sem_wait(sem_escritura) == -1){
         perror("sem_wait");
         exit(EXIT_FAILURE);
