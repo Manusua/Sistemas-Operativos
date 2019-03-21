@@ -1,83 +1,172 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <semaphore>
-#inlcude <fcntl.h>
+#include <semaphore.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define SEM "/example_sem"
+#define N_READ 2
+#define SECS 1
 
-void imprimir_semaforo(sem_t *sem){
-  int sval;
+#define SEM_LECTURA "/sem_lectura"
+#define SEM_ESCRITURA "/sem_escritura"
+#define LECTORES "/lectores"
 
-  if(sem_getvalue(sem, &sval) == -1){
-    perror("sem_getvalue");
-    sem_unlink(SEM);
+void leer(){
+  printf("R-INI %ld\n", getpid());
+  sleep(1);
+  printf("R-FIN %ld\n", getpid());
+}
+
+void escribir(){
+  printf("W-INI %ld\n", getpid());
+  sleep(1);
+  printf("W-FIN %ld\n", getpid());
+}
+
+
+void manejador_SIGINT(int sig){
+  printf("eee\n");
+  /*Mandamos la señal de SIGTERM a todos los hijos*/
+  if(kill(-1, SIGTERM) < 0){
+    perror("kill");
     exit(EXIT_FAILURE);
-  }
+  };
 
-  printf("Valor del semaforo: %d\n", sval);
-  fflush(stdout);
+
+  while(wait(NULL)>0);
+
+  sem_unlink(SEM_LECTURA);
+  sem_unlink(SEM_ESCRITURA);
+  sem_unlink(LECTORES);
+
+  return;
 }
 
-Lectura(){
-  Down(sem_lectura);
-  lectores++;
-  if(lectores == 1)
-    Down(sem_escritura);
-  Up(sem_lectura);
 
-  Leer();
-  Down(sem_lectura);
-  lectores--;
-  if(lectores == 0)
-    Up(sem_escritura);
-  Up(sem_lectura);
+
+
+void manejador_SIGTERM(int sig){
+  printf("Hijo %ld finalizado\n", getpid());
+  exit(EXIT_SUCCESS);
+
+  return;
 }
 
-Escritura(){
-  Down(sem_escritura);
-
-  Escribir();
-
-  Up(sem_escritura);
-}
 
 int main(void){
-  sem_t *sem = NULL;
+  sem_t *sem_lectura = NULL, *sem_escritura = NULL, *lectores = NULL;
   pid_t pid;
+  int i, aux;
+  struct sigaction act;
 
-  if((sem = sem_open(SEM, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED){
+  if((sem_lectura = sem_open(SEM_LECTURA, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 1)) == SEM_FAILED){
+    perror("sem_open");
+    exit(EXIT_FAILURE);
+  }
+  if((sem_escritura = sem_open(SEM_ESCRITURA, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 1)) == SEM_FAILED){
+    perror("sem_open");
+    exit(EXIT_FAILURE);
+  }
+  if((lectores = sem_open(LECTORES, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 1)) == SEM_FAILED){
     perror("sem_open");
     exit(EXIT_FAILURE);
   }
 
-  imprimir_semaforo(sem);
-  sem_post(sem);
-  imprimir_semaforo(sem);
-  sem_post(sem);
-  imprimir_semaforo(sem);
-  sem_wait(sem);
-  imprimir_semaforo(sem);
-
+  /*Supongo sin problema que minimo creara un hijo, si no el programa no tiene sentido*/
   pid = fork();
+  for(i = 1; i < N_READ && pid > 0; ++i){
+    pid = fork();
+    printf("hijo creado\n");
+  }
+
   if(pid < 0){
     perror("fork");
     exit(EXIT_FAILURE);
   }
   if(pid == 0){
-    sem_wait(sem);
-    printf("Zona protegida (hijo)\n");
-    sleep(5);
-    printf("Fin zona protegida\n");
-    sem_post(sem);
+    printf("HIJO\n" );
 
-    sem_close(sem);
-    exit(EXIT_SUCCES);
+    sigemptyset(&(act.sa_mask));
+    act.sa_handler = manejador_SIGTERM;
+    act.sa_flags = 0;
+    if(sigaction(SIGTERM, &act, NULL) < 0){
+      perror("Sigaction");
+      exit(EXIT_FAILURE);
+    }
+
+    while(1){
+      if(sem_wait(sem_lectura) == -1){
+        perror("sem_wait");
+        exit(EXIT_FAILURE);
+      }
+      if(sem_post(lectores) == -1){
+        perror("sem_post");
+        exit(EXIT_FAILURE);
+      }
+      if(sem_getvalue(lectores, &aux) == 0 && aux == 1)
+        if(sem_wait(sem_escritura) == -1){
+          perror("sem_wait");
+          exit(EXIT_FAILURE);
+        }
+      if(sem_post(sem_lectura) == -1){
+        perror("sem_post");
+        exit(EXIT_FAILURE);
+      }
+
+      leer();
+
+      if(sem_wait(sem_lectura) == -1){
+        perror("sem_wait");
+        exit(EXIT_FAILURE);
+      }
+      if(sem_wait(lectores) == -1){
+        perror("sem_wait");
+        exit(EXIT_FAILURE);
+      }
+      if(sem_getvalue(lectores, &aux) == 0 && aux == 0)
+        if(sem_post(sem_escritura) == -1){
+          perror("sem_post");
+          exit(EXIT_FAILURE);
+        }
+      if(sem_post(sem_lectura) == -1){
+        perror("sem_post");
+        exit(EXIT_FAILURE);
+      }
+
+      sleep(1);
+    }
+    exit(EXIT_SUCCESS);
   }
   else{
-    sem_wait(sem);
+    printf("PADRE\n" );
+    /*Establezco la señal de interrupcion(SIGINT) y su comportamiento*/
+    sigemptyset(&(act.sa_mask));
+    act.sa_handler = manejador_SIGINT;
+    act.sa_flags = 0;
+    if(sigaction(SIGINT, &act, NULL) < 0){
+      perror("Sigaction");
+      exit(EXIT_FAILURE);
+    }
+
+    while(1){
+    printf("BUCLE\n" );
+      if(sem_wait(sem_escritura) == -1){
+        perror("sem_wait");
+        exit(EXIT_FAILURE);
+      }
+
+      escribir();
+
+      if(sem_post(sem_escritura) == -1){
+        perror("sem_post");
+        exit(EXIT_FAILURE);
+      }
+
+      sleep(SECS);
+    }
+    /*sem_wait(sem);
     printf("Zona protegida (hijo)\n");
     sleep(5);
     printf("Fin zona protegida\n");
@@ -86,6 +175,14 @@ int main(void){
     sem_close(sem);
     sem_unlink(SEM);
     wait(NULL);
-    exit(EXIT_SUCCES);
+    exit(EXIT_SUCCESS);*/
+    sem_close(sem_lectura);
+    sem_unlink("/sem_lectura");
+    sem_close(sem_escritura);
+    sem_unlink("/sem_escritura");
+    sem_close(lectores);
+    sem_unlink("/lectores");
+    exit(EXIT_SUCCESS);
   }
+
 }

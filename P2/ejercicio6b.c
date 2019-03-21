@@ -8,8 +8,7 @@
 #define N_ITER 5
 
 void manejador_SIGTERM(int sig){
-  /*Pongo %d en vez de %ld para que no se queje el compilador*/
-  printf("Soy %d y he recibido la señal SIGTERM\n", getpid());
+  printf("Soy %ld y he recibido la señal SIGTERM\n", getpid());
   exit(EXIT_SUCCESS);
   return;
 }

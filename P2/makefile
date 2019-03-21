@@ -7,10 +7,10 @@
 # banderas de compilacion (puede ser util cambiarlas)
 CC = gcc
 #ifdef ENTREGA
-CFLAGS = -Wall -g -I -pthreads.
+CFLAGS = -Wall -g -I -pthreads -pthread
 LDLIBS = -lm
 #else
-CFLAGS = -Wall -g -I .
+CFLAGS = -Wall -g -I -pthreads -pthread
 #-DENTREGA
 LDLIBS = -lm
 #endif
@@ -25,9 +25,9 @@ EXEC_SOURCES = $(shell grep -l "^int main" $(SOURCES) | xargs)
 EXECS = $(shell echo $(EXEC_SOURCES) | sed -e 's:\.c[p]*::g')
 DEPS = $(shell echo $(SOURCES) | sed -e 's:\.c[p]*:\.d:g')
 
-all:	ejercicio6b
+all:	ejercicio8
 
-practica1:	ejercicio6b.o
+practica1:	ejercicio8.o
 
 # receta para hacer un .d (dependencias automaticas de tipo .h para tus .o)
 %.d : %.c
