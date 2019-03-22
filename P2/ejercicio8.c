@@ -6,7 +6,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define N_READ 10
+#define N_READ 1
 #define SECS 0
 
 #define SEM_LECTURA "/sem_lectura"
@@ -130,7 +130,7 @@ int main(void){
         exit(EXIT_FAILURE);
       }
 
-      sleep(1);
+      sleep(SECS);
     }
     exit(EXIT_SUCCESS);
   }
