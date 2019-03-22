@@ -14,22 +14,26 @@
 #define LECTORES "/lectores"
 
 void leer(){
-  printf("R-INI %ld\n", getpid());
+  printf("R-INI %ld\n", (long)getpid());
   sleep(1);
-  printf("R-FIN %ld\n", getpid());
+  printf("R-FIN %ld\n", (long)getpid());
 }
 
 void escribir(){
-  printf("W-INI %ld\n", getpid());
+  printf("W-INI %ld\n", (long)getpid());
   sleep(1);
-  printf("W-FIN %ld\n", getpid());
+  printf("W-FIN %ld\n", (long)getpid());
 }
 
 
 void manejador_SIGINT(int sig){
-  printf("eee\n");
   /*Mandamos la señal de SIGTERM a todos los hijos*/
-  if(kill(-1, SIGTERM) < 0){
+
+  sem_unlink(SEM_LECTURA);
+  sem_unlink(SEM_ESCRITURA);
+  sem_unlink(LECTORES);
+
+  if(kill(0, SIGTERM) < 0){
     perror("kill");
     exit(EXIT_FAILURE);
   };
@@ -37,18 +41,11 @@ void manejador_SIGINT(int sig){
 
   while(wait(NULL)>0);
 
-  sem_unlink(SEM_LECTURA);
-  sem_unlink(SEM_ESCRITURA);
-  sem_unlink(LECTORES);
-
   return;
 }
 
-
-
-
 void manejador_SIGTERM(int sig){
-  printf("Hijo %ld finalizado\n", getpid());
+  printf("Hijo %ld finalizado\n", (long)getpid());
   exit(EXIT_SUCCESS);
 
   return;
@@ -69,7 +66,7 @@ int main(void){
     perror("sem_open");
     exit(EXIT_FAILURE);
   }
-  if((lectores = sem_open(LECTORES, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 1)) == SEM_FAILED){
+  if((lectores = sem_open(LECTORES, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED){
     perror("sem_open");
     exit(EXIT_FAILURE);
   }
@@ -162,22 +159,12 @@ int main(void){
 
       sleep(SECS);
     }
-    /*sem_wait(sem);
-    printf("Zona protegida (hijo)\n");
-    sleep(5);
-    printf("Fin zona protegida\n");
-    sem_post(sem);
-
-    sem_close(sem);
-    sem_unlink(SEM);
-    wait(NULL);
-    exit(EXIT_SUCCESS);*/
     sem_close(sem_lectura);
-    sem_unlink("/sem_lectura");
+    sem_unlink(SEM_LECTURA);
     sem_close(sem_escritura);
-    sem_unlink("/sem_escritura");
+    sem_unlink(SEM_ESCRITURA);
     sem_close(lectores);
-    sem_unlink("/lectores");
+    sem_unlink(LECTORES);
     exit(EXIT_SUCCESS);
   }
 
