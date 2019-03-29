@@ -8,7 +8,7 @@
 #define N_ITER 5
 
 void manejador_SIGTERM(int sig){
-  printf("Soy %ld y he recibido la señal SIGTERM\n", getpid());
+  printf("Soy %ld y he recibido la señal SIGTERM\n", (long)getpid());
   exit(EXIT_SUCCESS);
   return;
 }
@@ -41,10 +41,11 @@ int main (void){
     }
   }
   else{
-    sleep(4);
+    sleep(40);
     kill(pid,SIGTERM);
-    wait(NULL);
   }
+  while(wait(NULL)>0);
+  exit(EXIT_SUCCESS);
 }
 
 //Cuando el hijo haya finalizado su ejecucion el apdre terminara

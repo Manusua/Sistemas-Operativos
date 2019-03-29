@@ -6,8 +6,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define N_READ 1
-#define SECS 0
+#define N_READ 2
+#define SECS 3
 
 #define SEM_LECTURA "/sem_lectura"
 #define SEM_ESCRITURA "/sem_escritura"
