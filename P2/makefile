@@ -52,7 +52,7 @@ practica1:	ejercicio2.o ejercicio3d.o ejercicio4.o ejercicio6a.o ejercicio6b.o e
 
 # limpieza
 clean:
-	@rm -f $(wildcard *.o *.d core* *.P) $(EXECS)
+	@rm -f $(wildcard *.o *.d core* *.P file.txt) $(EXECS)
 
 # ayuda (nunca viene mal)
 help:

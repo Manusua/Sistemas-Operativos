@@ -1,8 +1,14 @@
 /*
-* ejercicio4.c
-* Grupo 2202
-* 29 / 03 / 19
+Fichero: ejercicio4.c
+Autores: Manuel Suárez Román: manuel.suarezr@estudiante.uam.es,
+		 Manuel Cintado: manuel.cintado@estudiante.uam.es
+Grupo: 2202
+Fecha: 29/03/2019
+Descripción:Ejercicio en el que simulamos el funcionamiento de una carrera de procesos
 */
+
+/* Librerías utilizadas*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>

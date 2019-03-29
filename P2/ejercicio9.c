@@ -1,3 +1,13 @@
+/*
+Fichero: ejercicio9.c
+Autores: Manuel Suárez Román: manuel.suarezr@estudiante.uam.es,
+		 Manuel Cintado: manuel.cintado@estudiante.uam.es
+Grupo: 2202
+Fecha: 29/03/2019
+Descripción: simulaicion de una competicion entre procesos por ver quien hace mas escrituras
+*/
+
+/* Librerías utilizadas*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <semaphore.h>
@@ -79,8 +89,9 @@ int main(){
               perror("sigprocmask");
               exit(EXIT_FAILURE);
           }
-          srand(time(NULL)*(i+1));
-          usleep(rand()%100000);
+          srand(time(NULL)*getpid());
+          /*El 100000 + se puede quitar, pero es para que haga mas de un bucle(para comprobar que todo fucniona bien)*/
+          usleep(100000 + rand()%100000);
         }
       }
     }
@@ -120,7 +131,8 @@ int main(){
 
       while(wait(NULL) > 0);
 
-      /*No Reiniciamos el archivo pues es la ultima(para comprobar que ha hecho las cosas bien)*/
+      fclose(arch);
+      arch = fopen("file.txt", "w");
       fclose(arch);
       sem_close(sem);
       sem_unlink(SEM);

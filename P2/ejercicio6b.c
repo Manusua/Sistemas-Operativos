@@ -1,3 +1,13 @@
+/*
+Fichero: ejercicio6b.c
+Autores: Manuel Suárez Román: manuel.suarezr@estudiante.uam.es,
+		 Manuel Cintado: manuel.cintado@estudiante.uam.es
+Grupo: 2202
+Fecha: 29/03/2019
+Descripción: ejercicioq ue permite trabajar con la mascara de señales y las señales entre procesos
+*/
+
+/* Librerías utilizadas*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -48,4 +58,4 @@ int main (void){
   exit(EXIT_SUCCESS);
 }
 
-//Cuando el hijo haya finalizado su ejecucion el apdre terminara
+//Cuando el hijo haya finalizado su ejecucion el padre terminara
