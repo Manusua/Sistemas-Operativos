@@ -1,3 +1,13 @@
+/*
+Fichero: ejercicio2.c
+Autores: Manuel Suárez Román: manuel.suarezr@estudiante.uam.es,
+		 Manuel Cintado: manuel.cintado@estudiante.uam.es
+Grupo: 2202
+Fecha: 04/04/2019
+Descripción: ejericcio que crea hijos que modifican la memoria compartida
+*/
+
+/* Librerías utilizadas*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -16,27 +26,45 @@ typedef struct {
   int id;
   char name[NAME_MAX];
 } ClientInfo;
-
+/*Ponemos clienteinformacion como variable flobal para pode rmostrar los datos en el manejador*/
 ClientInfo *clienteinformacion;
-
+/*Imprimimos la informacion al recibir la señal*/
 void manejador_SIGUSR1(int sig){
   printf("recibida SIGUSR1\n");
-  printf("ID: %d.\nPrevious_id: %d\n Name: %s.\n", clienteinformacion->id, clienteinformacion->previous_id, clienteinformacion->name);
+  printf("ID: %d\nPrevious_id: %d\nName: %s\n", clienteinformacion->id, clienteinformacion->previous_id, clienteinformacion->name);
 }
+/*Para que cuando salgamos de una ejeccion con Ctrl+C se elimine le semaforo*/
+void manejador_SIGINT(int sig){
+  printf("recibida SIGINT\n");
+  munmap(clienteinformacion, sizeof(*clienteinformacion));
+  shm_unlink(SHM_NAME);
+  exit(EXIT_FAILURE);
+}
+
 int main(int argc, char *argv[]){
   int n, i;
   pid_t pid;
 	int fd_shm;
 	int error;
-  char* nombreaux;
+  char nombreaux[NAME_MAX];
   struct sigaction act;
-
+/*Controlamos que recibamos el numeor correcto de paramteros*/
   if(argc != 2) {
     printf("Introduzca el numero de procesos hijo\n");
     exit(EXIT_FAILURE);
   }
-  n = (int)argv[1];
 
+  n = atoi(argv[1]);
+
+/*manejador de Ctrl +C*/
+  sigemptyset(&(act.sa_mask));
+  act.sa_handler = manejador_SIGINT;
+  act.sa_flags = 0;
+  if(sigaction(SIGINT, &act, NULL) < 0){
+    perror("Sigaction");
+    exit(EXIT_FAILURE);
+  }
+/*Creamos el segmento de memoria comaprtida*/
   fd_shm = shm_open(SHM_NAME, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
 
   if(fd_shm == -1) {
@@ -47,7 +75,7 @@ int main(int argc, char *argv[]){
   error = ftruncate(fd_shm, sizeof(ClientInfo));
 
   if(error == -1) {
-    fprintf (stderr, "Error resizing the shared memory segment \n");
+    fprintf (stderr, "Error redimensionando el segmento de memoria compartida \n");
     shm_unlink(SHM_NAME);
     return EXIT_FAILURE;
   }
@@ -66,40 +94,42 @@ int main(int argc, char *argv[]){
 
   for(i = 0; i < n; ++i){
     pid = fork();
+
     if(pid < 0){
       perror("fork");
       exit(EXIT_FAILURE);
     }
     else if(pid == 0){
+      /*Si es el hijo generamos un numero aleatorio*/
       srand(pid);
       sleep(rand()%10 +1);
+
       clienteinformacion->previous_id ++;
-      printf("Introduzca el nombre del nuevo usuario\n");
-      scanf("%s\n",nombreaux);
+      printf("Introduzca el nombre del nuevo usuario ( %d)\n", getpid());
+      scanf("%s",nombreaux);
       strcpy(clienteinformacion->name, nombreaux);
+
       clienteinformacion->id++;
+      /*Mandamos la señal al padre*/
       kill(getppid(), SIGUSR1);
-      exit(EXIT_SUCCESS);
-    }
-    else{
-      /*TODO tengo que hacer que clienteinformacion sea una global par ameterlo en el manejador no?¿*/
-
-
-      sigemptyset(&(act.sa_mask));
-      act.sa_handler = manejador_SIGUSR1;
-      act.sa_flags = 0;
-      if(sigaction(SIGUSR1, &act, NULL) < 0){
-        perror("Sigaction");
-        exit(EXIT_FAILURE);
-      }
-
-      while(wait(NULL)>0);
-      munmap(example_struct, sizeof(*example_struct));
-    	shm_unlink(SHM_NAME);
       exit(EXIT_SUCCESS);
     }
   }
 
+  sigemptyset(&(act.sa_mask));
+  act.sa_handler = manejador_SIGUSR1;
+  act.sa_flags = 0;
+
+  if(sigaction(SIGUSR1, &act, NULL) < 0){
+    perror("Sigaction");
+    exit(EXIT_FAILURE);
+  }
+
+  while(wait(NULL)>0);
+  /*Liberamos todos los recursos*/
+  munmap(clienteinformacion, sizeof(*clienteinformacion));
+	shm_unlink(SHM_NAME);
+  exit(EXIT_SUCCESS);
 
   return EXIT_SUCCESS;
 }
