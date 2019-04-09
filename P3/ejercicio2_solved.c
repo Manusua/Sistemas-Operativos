@@ -37,6 +37,7 @@ ClientInfo *clienteinformacion;
 void manejador_SIGUSR1(int sig){
   printf("recibida SIGUSR1\n");
   printf("\tID: %d\n\tPrevious_id: %d\n\tName: %s\n", clienteinformacion->id, clienteinformacion->previous_id, clienteinformacion->name);
+
 }
 /*Para que cuando salgamos de una ejeccion con Ctrl+C se elimine le semaforo*/
 void manejador_SIGINT(int sig){
@@ -48,7 +49,7 @@ void manejador_SIGINT(int sig){
 }
 
 int main(int argc, char *argv[]){
-  int n, i, aux;
+  int n, i;
   pid_t pid;
 	int fd_shm;
 	int error;
@@ -105,7 +106,7 @@ int main(int argc, char *argv[]){
   /*Inicializamos id previous_id*/
   clienteinformacion->id = 0;
   clienteinformacion->previous_id = -1;
-  
+
   for(i = 0; i < n; ++i){
     pid = fork();
 
@@ -115,33 +116,24 @@ int main(int argc, char *argv[]){
     }
     else if(pid == 0){
       while(1){
-        if(sem_getvalue(sem_lect, &aux) == 0 && aux == 1){
-          if(sem_wait(sem_lect) == -1){
-            perror("sem_wait");
-            exit(EXIT_FAILURE);
-          }
+        sem_wait(sem_lect);
 
-          /*Si es el hijo generamos un numero aleatorio*/
-          srand(pid);
-          sleep(rand()%10 +1);
+        /*Si es el hijo generamos un numero aleatorio*/
+        srand(pid);
+        sleep(rand()%10 +1);
 
-          clienteinformacion->previous_id ++;
-          printf("Introduzca el nombre del nuevo usuario ( %d)\n", getpid());
-          scanf("%s",nombreaux);
-          strcpy(clienteinformacion->name, nombreaux);
+        clienteinformacion->previous_id ++;
+        printf("Introduzca el nombre del nuevo usuario ( %d)\n", getpid());
+        scanf("%s",nombreaux);
+        strcpy(clienteinformacion->name, nombreaux);
 
-          clienteinformacion->id++;
-          /*Mandamos la señal al padre*/
-          kill(getppid(), SIGUSR1);
+        clienteinformacion->id++;
+        /*Mandamos la señal al padre*/
+        kill(getppid(), SIGUSR1);
+        /*Permitimos que otro hijo pueda hacer sus funciones*/
 
-          /*Permitimos que otro hijo pueda hacer sus funciones*/
-          if(sem_post(sem_lect) == -1){
-            perror("sem_post");
-            exit(EXIT_FAILURE);
-          }
+        exit(EXIT_SUCCESS);
 
-          exit(EXIT_SUCCESS);
-        }
       }
     }
     else{
@@ -157,6 +149,10 @@ int main(int argc, char *argv[]){
     if(sigaction(SIGUSR1, &act, NULL) < 0){
       perror("Sigaction");
       exit(EXIT_FAILURE);
+    }
+    for(i = 0; i < n; ++i){
+      pause();
+      sem_post(sem_lect);
     }
     while(wait(NULL)>0);
     /*Liberamos todos los recursos*/
