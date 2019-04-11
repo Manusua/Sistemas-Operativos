@@ -20,6 +20,7 @@ Descripción: parte del consumidor en el problema consumidor-productor
 #include <semaphore.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include "queue.h"
 
 /*TODO ver como podemos meterlo en otro fichero*/
 #define ESPACIOS "/sem_espacios"
