@@ -28,7 +28,7 @@ void destroy(Cola* queue);
 
 int queue_size(Cola *queue);
 
-void insert(Cola* queue, char letra);
+bool insert(Cola* queue, char letra);
 
 bool is_full(Cola* queue);
 

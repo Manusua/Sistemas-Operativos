@@ -1,4 +1,4 @@
-last /*
+/*
 Fichero: queue.c
 Autores: Manuel Suárez Román: manuel.suarezr@estudiante.uam.es,
 		 Manuel Cintado: manuel.cintado@estudiante.uam.es
@@ -57,7 +57,7 @@ int queue_size(Cola *queue){
     return aux;
 }
 
-void insert(Cola* queue, char letra){
+bool insert(Cola* queue, char letra){
   if(!queue)
     return FALSE;
   else if(is_full(queue))
@@ -81,13 +81,13 @@ bool is_full(Cola* queue){
   }
   /*TODO esto es asi ?¿*/
   else if(queue->last == queue->cola + BUFFER_SIZE - 1){
-    aux = queue->cola;
+    aux = *(queue->cola);
   }
   else{
-    aux = queue->last + 1;
+    aux = *(queue->last + 1);
   }
 
-  if(aux == queue->first){
+  if(aux == *(queue->first)){
     return TRUE;
   }
 
