@@ -15,11 +15,7 @@ Ficher que implemena las funciones de la cola circular
 #include "queue.h"
 /*Consideramos la creacion de un array estático en vez de uno dinamico pues tenemos
 definido previamente le numero maximo del mismo (10)*/
-struct _Cola{
-  char *last;
-  char *first;
-  char cola[BUFFER_SIZE];
-};
+
 
 Cola* init(){
   Cola* queue;
@@ -28,8 +24,8 @@ Cola* init(){
     perror("malloc");
     exit(EXIT_FAILURE);
   }
-  queue->first = queue->cola;
-  queue->last = queue->cola;;
+  queue->first = 0;
+  queue->last = 0;
   return queue;
 }
 
@@ -37,74 +33,66 @@ void destroy(Cola* queue){
   free(queue);
 }
 
-int queue_size(Cola *queue){
-    int aux;
-
+int size(Cola *queue){
     if(!queue)
         return -1;
 
-    if(is_empty(queue))
+    if(is_empty(queue) == 0)
         return 0;
 
-    if(queue->last > queue->first)
-        aux = queue->last - queue->first;
+    if(queue->first < queue->last)
+        return (queue->last - queue->first);
 
-    else if(queue->first > queue->last) {
-        aux = queue->first - queue->last;
-        aux = BUFFER_SIZE - aux;
-    }
-
-    return aux;
+    else
+        return (BUFFER_SIZE - queue->first + queue->last);
 }
 
-bool insert(Cola* queue, char letra){
+int insert(Cola* queue, char letra){
   if(!queue)
-    return FALSE;
-  else if(is_full(queue))
-    return FALSE;
-
-  *queue->last = letra;
-
-  if(queue->last == queue->cola + BUFFER_SIZE + 1){
-    queue->last = queue->cola;
+    return -1;
+  else if(is_full(queue) == 0){
+    return -1;
+  }
+  queue->cola[queue->last] = letra;
+  if(queue->last == BUFFER_SIZE - 1){
+    queue->last = 0;
   }
   else
     queue->last++;
 
-  return TRUE;
+  return 0;
 }
 
-bool is_full(Cola* queue){
+int is_full(Cola* queue){
   char aux;
   if(!queue){
-    return TRUE;
+    return 0;
   }
-  /*TODO esto es asi ?¿*/
-  else if(queue->last == queue->cola + BUFFER_SIZE - 1){
-    aux = *(queue->cola);
+  else if(queue->last ==  BUFFER_SIZE - 1){
+    aux = 0;
   }
   else{
-    aux = *(queue->last + 1);
+    aux = queue->last + 1;
   }
 
-  if(aux == *(queue->first)){
-    return TRUE;
+  if(aux == queue->first){
+    printf("La cola está llena\n");
+    return 0;
   }
-
-  return FALSE;
+  return -1;
 }
 
 char delete(Cola* queue){
   char aux;
   if(!queue)
-    return FALSE;
-  else if(is_empty(queue))
-    return FALSE;
+    return -1;
+  else if(is_empty(queue) == 0)
+    return -1;
 
-  aux = *(queue->first);
+  aux = queue->cola[queue->first];
 
-  if(queue->first == queue->cola + BUFFER_SIZE - 1){
-    queue->first = queue->cola;
+  if(queue->first == BUFFER_SIZE - 1){
+    queue->first = 0;
   }
   else
     queue->first++;
@@ -112,14 +100,14 @@ char delete(Cola* queue){
   return aux;
 }
 
-bool is_empty(Cola* queue){
+int is_empty(Cola* queue){
   if(!queue){
-    return FALSE;
+    return -1;
   }
-
   if(queue->last == queue->first){
-    return TRUE;
+    printf("La cola está vacía\n");
+    return 0;
   }
 
-  return FALSE;
+  return -1;
 }

@@ -15,25 +15,28 @@ Ficher que implemena las funciones de la cola circular
 #include <stddef.h>
 
 #define BUFFER_SIZE 10
-#define TRUE 1
-#define FALSE 0
 
-typedef struct _Cola Cola;
+typedef struct _Cola{
+  /*last nos va a indicar donde introducir el nuevo elemnto (es decir si hay un elemento
+sera el 0)*/
+  int last;
+  int first;
+  char cola[BUFFER_SIZE];
+} Cola;
 
-typedef int bool;
 
 Cola* init();
 
 void destroy(Cola* queue);
 
-int queue_size(Cola *queue);
+int size(Cola *queue);
 
-bool insert(Cola* queue, char letra);
+int insert(Cola* queue, char letra);
 
-bool is_full(Cola* queue);
+int is_full(Cola* queue);
 
 char delete(Cola* queue);
 
-bool is_empty(Cola* queue);
+int is_empty(Cola* queue);
 
 #endif
