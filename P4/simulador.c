@@ -301,7 +301,7 @@ int main() {
 			close(fd_jefe[turno][0]);
 
 
-
+			//Va a ser con un write
 			comunicarnuevoturno();
 		}
 		procesa_accion();
