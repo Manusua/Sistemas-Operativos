@@ -33,8 +33,12 @@ void manejador_SIGALARM(int sig){
 	nuevo_turno = true;
 }
 
-void procesa_accion(){
+void manejador_SIGTERM(int sig){
+  printf("\nRecibida SITERM. PID; %ld\n", (long)getpid());
 
+  //TODO liberar recursos?¿?¿?
+
+  exit(EXIT_SUCCESS);
 }
 
 void inicializar_mapa(tipo_mapa* mapa){
@@ -82,7 +86,13 @@ int main() {
   struct sigaction act;
 	int error;
 	//TODO creo que se puede usar unicamente aux al sser procesos distintos.
-	char aux[20], aux_jefe[20], aux_nave[20];
+	char aux[20], aux_jefe[20], aux_nave[20], aux_cola[20];
+  bool finalizado = false;
+  int auxx_cola, auxy_cola, auxc_equipo, auxc_nave, aux_des;
+  char num_nave_aux;
+  bool encontrado;
+  int minimo, y, z, aux_minimo, x_dest, y_dest;
+
 	attributes.mq_flags = 0;
 	attributes.mq_maxmsg = 10;
 	attributes.mq_curmsgs = 0;
@@ -109,6 +119,14 @@ int main() {
 		mq_unlink(MQ_NAME);
     exit(EXIT_FAILURE);
   }
+  act.sa_handler = manejador_SIGTERM;
+
+  if (sigaction(SIGTERM, &act, NULL) < 0) {
+    perror("sigaction");
+		mq_close(queue);
+		mq_unlink(MQ_NAME);
+    exit(EXIT_FAILURE);
+  }
 
 	fd_shm_mapa = shm_open(SHM_MAP_NAME, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
 	if(fd_shm_mapa == -1){
@@ -119,7 +137,7 @@ int main() {
 	}
 
 	error_mapa = ftruncate(fd_shm_mapa, sizeof(tipo_mapa));
-	if(fd_shm_mapa == -1){
+	if(error_mapa == -1){
 		perror("ftruncate");
 		mq_close(queue);
 		mq_unlink(MQ_NAME);
@@ -138,14 +156,15 @@ int main() {
 
 //i va a ser el numeor de identificador(interno) de la nave jefe
 	for(i = 0; i < N_EQUIPOS;++i){//Abrimos la tubería con el simulador
-	pipe_status = pipe(fd_jefe[i]);
-	if(pipe_status == -1) {
-		perror("pipe");
-		mq_close(queue);
-		mq_unlink(MQ_NAME);
-		shm_unlink(SHM_MAP_NAME);
-		exit(EXIT_FAILURE);
-	}
+  	pipe_status = pipe(fd_jefe[i]);
+  	if(pipe_status == -1) {
+  		perror("pipe");
+  		mq_close(queue);
+  		mq_unlink(MQ_NAME);
+  		shm_unlink(SHM_MAP_NAME);
+  		exit(EXIT_FAILURE);
+
+    }
 		pid_jefe = fork();
 		if(pid_jefe < 0){
 			perror("fork");
@@ -194,15 +213,46 @@ int main() {
 						if(aux_nave[0] == 'A'){
 							//Tenemos que ATACAR
 							//Buscamos nave enemiga
-							buscar_nave_enemiga();
+
+              //Aunque mas adelante también comprobamos el rango, solo vamos a buscar naves a nuestro alcance
+              //Vamos a hacer una IA basada en localizar a la nave enemiga mas cercana
+              minimo = ATAQUE_ALCANCE ;
+              x_dest = -1;
+              y_dest = -1;
+              encontrado = false;
+              for(y = 0; y < N_EQUIPOS; ++y){
+                //Si no es del mismo equipo
+                if(y != i){
+                    for(z = 0; z < N_NAVES; ++z){
+                      if((aux_minimo = mapa_get_distancia(mapa, mapa->info_naves[i][j].posy, mapa->info_naves[i][j].posx, mapa->info_naves[y][z].posy, mapa->info_naves[y][z].posx)) <= minimo){
+                        minimo = aux_minimo;
+                        x_dest = mapa->info_naves[y][z].posx;
+                        y_dest = mapa->info_naves[y][z].posy;
+                        encontrado = true;
+                      }
+                    }
+                }
+              }
 							//Enviamos el mensaje a simulador
-							strcpy(aux_nave, "ATACAR");
-							if(mq_send(queue, (char *)&aux_nave, sizeof(aux_nave), 1) == -1){
-								perror("mq_send");mq_close(queue);
-  							mq_unlink(MQ_NAME);
-  							shm_unlink(SHM_MAP_NAME);
-  							exit(EXIT_FAILURE);
-							}
+              //Solo enviamos el mensaje al simulador si se ha encontrado nave a la que disparar
+              if(encontrado){
+  							strcpy(aux_nave, "ATACAR");
+                aux_nave[7] = ((int)x_dest/10)+ '0';
+                aux_nave[8] = x_dest%10 + '0';
+
+                aux_nave[9] = ((int)y_dest/10)+ '0';
+                aux_nave[10] = y_dest%10 + '0';
+
+                aux_nave[11] = i + '0';
+                aux_nave[12] = j + '0';
+  							if(mq_send(queue, (char *)&aux_nave, sizeof(aux_nave), 1) == -1){
+  								perror("mq_send");
+                  mq_close(queue);
+    							mq_unlink(MQ_NAME);
+    							shm_unlink(SHM_MAP_NAME);
+    							exit(EXIT_FAILURE);
+  							}
+              }
 						}
 						else if(aux_nave[0] == 'M'){
 							//Movimiento aleatorio
@@ -222,10 +272,15 @@ int main() {
               //Fin movimiento aleatorio
 							strcpy(aux_nave, "MOVER");
               //TODO hacer esto como funcion add_data_mover(aux_nave, aux_movx, aux_movy, i, j);
-              itoa(aux_nave[6],aux_movx, 10);
-              itoa(aux_nave[7],aux_movy, 10);
-              itoa(aux_nave[8],i, 10);
-              itoa(aux_nave[9],j, 10);
+              //Quizas sea mejor aux_nave[6] = aux_movx y luego extraes el valor del char(con casteo), sin añadirle el +'0'
+              aux_nave[6] = ((int)aux_movx/10)+ '0';
+              aux_nave[7] = aux_movx%10 + '0';
+
+              aux_nave[8] = ((int)aux_movy/10)+ '0';
+              aux_nave[9] = aux_movy%10 + '0';
+
+              aux_nave[10] = i + '0';
+              aux_nave[11] = j + '0';
 
 							if(mq_send(queue, (char *)&aux_nave, sizeof(aux_nave), 1) == -1){
 								perror("mq_send");
@@ -237,9 +292,8 @@ int main() {
 						}
 						else if(aux_nave[0] == 'D'){
 							//Destruir
-							//Entiendo que destruir es pq ya se ha comprobado la vida y esas cosas;
-              mapa->info_naves[i][j].viva = false;
-              mapa->num_naves[i] --;
+							//Termina el proceso de la nave
+              //TODO Me faltan cosas fijo, liberar recursos?¿
               exit(EXIT_SUCCESS);
 
 						}
@@ -252,8 +306,6 @@ int main() {
 						}
 
 					}
-
-					//TODO ver como afecta lo de char* en el mq_send al tipo accio
 
 					exit(EXIT_SUCCESS);
 				}
@@ -278,13 +330,14 @@ int main() {
 				if(aux[0] == 'F'){
 					//Finalizar la ejecucion
 
-          //TODO no se que con sigterm-->P2
+          kill(0, SIGTERM);
 				}
 				else if(aux[0] == 'D'){
 					//Destruir
-          strcpy(aux_jefe, "DESTRUIR");
-          close(fd_naves[i][auxi_nave][0]);
-					write(fd_naves[i][auxi_nave][1], aux_jefe, sizeof(aux_jefe));
+          aux_des = aux[9] - '0';
+
+          close(fd_naves[i][aux_des][0]);
+					write(fd_naves[i][aux_des][1], aux, sizeof(aux));
 
 
 				}
@@ -298,7 +351,7 @@ int main() {
 						strcpy(aux_jefe, "ATACAR");
 					else
 						strcpy(aux_jefe, "MOVER");
-					//Escribimos a una nave aleatoria que ataque
+					//Escribimos a una nave aleatoria que haga la accion
 					auxi_nave = rand()%3;
 					close(fd_naves[i][auxi_nave][0]);
 					write(fd_naves[i][auxi_nave][1], aux_jefe, sizeof(aux_jefe));
@@ -326,8 +379,6 @@ int main() {
 
 	turno = 0;
 	nuevo_turno = true;
-  bool finalizado = false;
-	//TODO cambiar la condicion a que le juego siga?¿
 	while(!finalizado){
 		if(nuevo_turno){
 			//Establecemos una alarma para cambiar al siguiente tunro en un futuro
@@ -380,7 +431,7 @@ int main() {
     que ha finalizado la partida y se quede esperando sin comprobar finalizado*/
     else{
       //Recibimos la accion por la cola de mensajes de parte de las naves
-      char aux_cola[20];
+
       if(mq_receive(queue, aux_cola, sizeof(aux_cola), NULL) == -1){
         perror("mq_receive");
     		mq_close(queue);
@@ -391,11 +442,10 @@ int main() {
       if(aux_cola[0] == 'M'){
         /*Una vez llegados aquí, ya sabemos que la casilla de destino es valida,
         pero volvemos a comprobar*/
-        int auxx_cola, auxy_cola, auxc_equipo, auxc_nave;
-        auxx_cola = atoi(aux_cola[6]);
-        auxy_cola = atoi(aux_cola[7]);
-        auxc_equipo = atoi(aux_cola[8]);
-        auxc_nave = atoi(aux_cola[9]);
+        auxx_cola = ((int)(aux_cola[6] - '0') * 10 + (int)(aux_cola[7] -'0'));
+        auxy_cola = ((int)(aux_cola[8] - '0') * 10 + (int)(aux_cola[9] -'0'));
+        auxc_equipo = (int)(aux_cola[10] - '0');
+        auxc_nave = (int)(aux_cola[11] - '0');
         //TODO supongo que la primera columna del mapa tendra iedentificador 0
         if(auxx_cola >=0 && auxx_cola < MAPA_MAXX && auxy_cola >=0 && auxy_cola < MAPA_MAXY ){
           if(mapa_is_casilla_vacia(mapa, auxy_cola, auxx_cola)){
@@ -411,12 +461,10 @@ int main() {
       else if(aux_cola[0] == 'A'){
         /*Una vez llegados aquí, ya sabemos que la casilla de destino es valida,
         pero volvemos a comprobar*/
-        int auxx_cola, auxy_cola, auxc_equipo, auxc_nave;
-        auxx_cola = atoi(aux_cola[7]);
-        auxy_cola = atoi(aux_cola[8]);
-        //EQuipo e identificado rde la nave que ordena
-        auxc_equipo = atoi(aux_cola[9]);
-        auxc_nave = atoi(aux_cola[10]);
+        auxx_cola = ((int)(aux_cola[6] - '0') * 10 + (int)(aux_cola[7] -'0'));
+        auxy_cola = ((int)(aux_cola[8] - '0') * 10 + (int)(aux_cola[9] -'0'));
+        auxc_equipo = (int)(aux_cola[10] - '0');
+        auxc_nave = (int)(aux_cola[11] - '0');
         //TODO supongo que la primera columna del mapa tendra iedentificador 0
         if(auxx_cola >=0 && auxx_cola < MAPA_MAXX && auxy_cola >=0 && auxy_cola < MAPA_MAXY ){
           tipo_nave nave_aux = mapa_get_nave(mapa, auxc_equipo, auxc_nave);
@@ -429,11 +477,35 @@ int main() {
             }
             else{
               //Si no es que hay una nave
-              tipo_casilla aux_casilla = mapa_get_casilla(mapa, auxy_cola, auxx_cola));
+              tipo_casilla aux_casilla = mapa_get_casilla(mapa, auxy_cola, auxx_cola);
+              //aux_nave_cas es la nave atacada
               tipo_nave aux_nave_cas = mapa_get_nave(mapa,aux_casilla.equipo, aux_casilla.numNave);
               //Si es fuego amigo no pasa nada
               if(aux_nave_cas.equipo != auxc_equipo){
-              
+                mapa->info_naves[auxc_equipo][auxc_nave].vida =-ATAQUE_DANO;
+                if(mapa->info_naves[auxc_equipo][auxc_nave].vida <= 0){
+                  //La nave debe ser destruida
+                  mapa_set_symbol(mapa, auxy_cola, auxx_cola, SYMB_DESTRUIDO);
+
+
+                  num_nave_aux = auxc_nave + '0';
+                  strcpy(aux, "DESTRUIR");
+                  aux[9] = num_nave_aux;
+                  //Comunicamos a la nave jefe correspondiente que su nave debe morir
+                  close(fd_jefe[aux_nave_cas.equipo][0]);
+
+                  write(fd_jefe[aux_nave_cas.equipo][1], aux, sizeof(aux));
+
+                  //Actualizamos la informacion del mapa
+                  mapa_set_num_naves(mapa, aux_nave_cas.equipo, mapa->num_naves[aux_nave_cas.equipo]--);
+                  mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].viva = false;
+                  mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida = 0;
+
+                }
+                else{
+                  mapa_set_symbol(mapa, auxy_cola, auxx_cola, SYMB_TOCADO);
+                  mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida =- 10;
+                }
               }
             }
           }
