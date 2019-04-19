@@ -26,7 +26,7 @@ void manejador_SIGINT(int sig){
 }
 
 void manejador_SIGALARM(int sig){
-	//TODO mover esto al printf
+
 	printf("\nNuevo turno\n");
 	turno ++;
 	turno = turno%N_EQUIPOS;
@@ -34,9 +34,10 @@ void manejador_SIGALARM(int sig){
 }
 
 void manejador_SIGTERM(int sig){
-  printf("\nRecibida SITERM. PID; %ld\n", (long)getpid());
+  printf("\nRecibida SIGTERM. PID; %ld\n", (long)getpid());
 
-  //TODO liberar recursos?¿?¿?
+  shm_unlink(SHM_MAP_NAME);
+  mq_unlink(MQ_NAME);
 
   exit(EXIT_SUCCESS);
 }
@@ -100,8 +101,8 @@ int main() {
 
 
 	queue = mq_open(MQ_NAME,
-				O_CREAT | O_WRONLY, /* This process is only going to send messages */
-				S_IRUSR | S_IWUSR, /* The user can read and write */
+				O_CREAT | O_RDWR,
+				S_IRUSR | S_IWUSR,
 				&attributes);
 
 	if(queue == (mqd_t)-1) {
@@ -157,6 +158,7 @@ int main() {
 //i va a ser el numeor de identificador(interno) de la nave jefe
 	for(i = 0; i < N_EQUIPOS;++i){//Abrimos la tubería con el simulador
   	pipe_status = pipe(fd_jefe[i]);
+    printf("HOLI: %d\n", i);
   	if(pipe_status == -1) {
   		perror("pipe");
   		mq_close(queue);
@@ -178,7 +180,7 @@ int main() {
 
 			//j va a ser el numero de identificador (interno) de la nave
 			for(j = 0; j < N_NAVES; ++j){
-
+        printf("HOLU HIJO:%d padre %i\n", j, i);
 					//Abrimos la tubería con la nave jefe
 	 			pipe_status = pipe(fd_naves[i][j]);
 				if(pipe_status == -1) {
@@ -374,12 +376,14 @@ int main() {
 	//Proceso del simulador
 	inicializar_mapa(mapa);
 	//Armamos el recibidor de la alarma
+
 	sigemptyset(&act.sa_mask);
 	act.sa_handler = manejador_SIGALARM;
 
 	turno = 0;
 	nuevo_turno = true;
 	while(!finalizado){
+    printf("Nuevo procesamiento\n");
 		if(nuevo_turno){
 			//Establecemos una alarma para cambiar al siguiente tunro en un futuro
 			alarm(TURNO_SECS);
@@ -391,7 +395,7 @@ int main() {
       int p,q;
       int auxigan = 0;
       for(p = 0; p < N_EQUIPOS; ++p){
-        if(mapa->num_naves[p] == 0)
+        if(mapa->num_naves[p] != 0)
           auxigan++;
       }
       if(auxigan == 0){

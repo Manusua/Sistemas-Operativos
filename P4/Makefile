@@ -1,4 +1,4 @@
-TARGET = ../target
+TARGET = .
 
 CC = gcc
 CFLAGS = -g -Wall -pthread -I.
@@ -9,14 +9,13 @@ NC=\e[0m
 
 all: simulador monitor
 
-clean: 
-	rm -r -f $(TARGET)
+clean:
+	rm -r -f
+	rm simulador
+	rm monitor
 
 simulador:
-	mkdir -p $(TARGET)
-	$(CC) $(CFLAGS) mapa.c simulador.c -o $(TARGET)/simulador -lrt -lm
-	
+	$(CC) $(CFLAGS) mapa.c simulador.c -o simulador -lrt -lm
+
 monitor:
-	mkdir -p $(TARGET)
-	$(CC) $(CFLAGS) gamescreen.c mapa.c monitor.c -o $(TARGET)/monitor -lrt -lncurses -lm
-		
+	$(CC) $(CFLAGS) gamescreen.c mapa.c monitor.c -o monitor -lrt -lncurses -lm
