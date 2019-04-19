@@ -10,6 +10,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <mapa.h>
 
@@ -39,7 +40,6 @@ void procesa_accion(){
 void inicializar_mapa(tipo_mapa* mapa){
 	int i,j, posx = 0, posy = 0;
 	tipo_nave nave;
-	enum accion acc;
 	nave.vida = VIDA_MAX;
 	nave.viva = true;
 
@@ -198,21 +198,44 @@ int main() {
 							//Enviamos el mensaje a simulador
 							strcpy(aux_nave, "ATACAR");
 							if(mq_send(queue, (char *)&aux_nave, sizeof(aux_nave), 1) == -1){
-								perror("mq_send");
-								exit(EXIT_FAILURE);
+								perror("mq_send");mq_close(queue);
+  							mq_unlink(MQ_NAME);
+  							shm_unlink(SHM_MAP_NAME);
+  							exit(EXIT_FAILURE);
 							}
 						}
 						else if(aux_nave[0] == 'M'){
 							//Movimiento aleatorio
-							movimiento_aleatorio();
+              //TODO, poner la x en el 0 y la y en el 1 de un array de tamaño dos
+              int aux_movx, aux_movy, aux_mov_posx,aux_mov_posy;
+              srand(getpid() + time(0));
+              //Por si tiene mas movimiento que mapa
+              aux_mov_posx = mapa_get_nave(mapa, i, j).posx;
+              aux_mov_posy = mapa_get_nave(mapa, i, j).posy;
+              aux_movx = (rand()%MAPA_MAXX);
+              aux_movy = (rand()%MAPA_MAXY);
+              while((mapa_get_distancia(mapa,aux_mov_posy, aux_mov_posx, aux_movy, aux_movx ) <= MOVER_ALCANCE)&&!mapa_is_casilla_vacia(mapa, aux_mov_posy + aux_movy, aux_mov_posx + aux_movx)){
+                //TODO No se si me va a generar el mismo numero, hacer ++ sino o algo asi
+                aux_movx = (rand()%MAPA_MAXX)%MOVER_ALCANCE;
+                aux_movy = (rand()%MAPA_MAXY)%MOVER_ALCANCE;
+              }
+              mapa_clean_casilla(mapa, aux_mov_posy, aux_mov_posx);
+              mapa->info_naves[i][j].posx = aux_movx;
+              mapa->info_naves[i][j].posy = aux_movy;
+              mapa_set_nave(mapa,mapa_get_nave(mapa,i,j));
+
+              //Fin movimiento aleatorio
 							strcpy(aux_nave, "MOVER");
 							if(mq_send(queue, (char *)&aux_nave, sizeof(aux_nave), 1) == -1){
 								perror("mq_send");
-								exit(EXIT_FAILURE);
+                mq_close(queue);
+  							mq_unlink(MQ_NAME);
+  							shm_unlink(SHM_MAP_NAME);
+  							exit(EXIT_FAILURE);
 							}
 						}
 						else if(aux_nave[0] == 'D'){
-							//Movimiento aleatorio
+							//Destruir
 							finalizar();
 
 						}
@@ -250,12 +273,21 @@ int main() {
 				//TODO mejorar esto
 				if(aux[0] == 'F'){
 					//Finalizar la ejecucion
+
+          //TODO no se que con sigterm-->P2
 				}
 				else if(aux[0] == 'D'){
 					//Destruir
+          strcpy(aux_jefe, "DESTRUIR");
+          close(fd_naves[i][auxi_nave][0]);
+					write(fd_naves[i][auxi_nave][1], aux_jefe, sizeof(aux_jefe));
+
+
 				}
 				else if(aux[0] == 'T'){
 					//Nuevo turno
+
+          //Elegimos la accion aleatoriamente(atacar o mover)
 					srand(time(NULL));
 					aux_accion = rand()%2;
 					if(aux_accion == 0)
@@ -269,7 +301,7 @@ int main() {
 
 				}
 				else{
-					//Se ha recibido algo inesperado
+					//Se ha recibido algo inesperado pq o recibe FIn o Turno o Desgtruir
 					perror("read");
 					mq_close(queue);
 					mq_unlink(MQ_NAME);
@@ -301,9 +333,12 @@ int main() {
 			close(fd_jefe[turno][0]);
 
 
-			//Va a ser con un write
-			comunicarnuevoturno();
+			strcpy(aux, "TURNO");
+      write(fd_jefe[turno][1], aux, sizeof(aux));
 		}
+
+    //Recibimos la accion por la cola de mensajes de parte de las naves
+    recibe_accion();
 		procesa_accion();
 	}
 

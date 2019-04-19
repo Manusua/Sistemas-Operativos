@@ -54,7 +54,5 @@ typedef struct {
 #define MQ_NAME "/mq_name"
 
 
-//Creamos un tipo acción con las dos acciones posibles
-enum accion{ATACAR, MOVER};
 
 #endif /* SRC_SIMULADOR_H_ */
