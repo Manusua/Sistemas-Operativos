@@ -70,7 +70,6 @@ void mapa_set_symbol(tipo_mapa *mapa, int posy, int posx, char symbol)
 	mapa->casillas[posy][posx].simbolo=symbol;
 }
 
-
 int mapa_set_nave(tipo_mapa *mapa, tipo_nave nave)
 {
 	if (nave.equipo >= N_EQUIPOS) return -1;
@@ -130,4 +129,3 @@ void mapa_send_misil(tipo_mapa *mapa, int origeny, int origenx, int targety, int
 
 	mapa_set_symbol(mapa,py, px,ps);
 }
-

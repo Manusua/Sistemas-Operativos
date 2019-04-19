@@ -219,13 +219,14 @@ int main() {
                 aux_movx = (rand()%MAPA_MAXX)%MOVER_ALCANCE;
                 aux_movy = (rand()%MAPA_MAXY)%MOVER_ALCANCE;
               }
-              mapa_clean_casilla(mapa, aux_mov_posy, aux_mov_posx);
-              mapa->info_naves[i][j].posx = aux_movx;
-              mapa->info_naves[i][j].posy = aux_movy;
-              mapa_set_nave(mapa,mapa_get_nave(mapa,i,j));
-
               //Fin movimiento aleatorio
 							strcpy(aux_nave, "MOVER");
+              //TODO hacer esto como funcion add_data_mover(aux_nave, aux_movx, aux_movy, i, j);
+              itoa(aux_nave[6],aux_movx, 10);
+              itoa(aux_nave[7],aux_movy, 10);
+              itoa(aux_nave[8],i, 10);
+              itoa(aux_nave[9],j, 10);
+
 							if(mq_send(queue, (char *)&aux_nave, sizeof(aux_nave), 1) == -1){
 								perror("mq_send");
                 mq_close(queue);
@@ -236,7 +237,10 @@ int main() {
 						}
 						else if(aux_nave[0] == 'D'){
 							//Destruir
-							finalizar();
+							//Entiendo que destruir es pq ya se ha comprobado la vida y esas cosas;
+              mapa->info_naves[i][j].viva = false;
+              mapa->num_naves[i] --;
+              exit(EXIT_SUCCESS);
 
 						}
 						else{
@@ -322,24 +326,129 @@ int main() {
 
 	turno = 0;
 	nuevo_turno = true;
-	//TODO cambiar la condicion?¿
-	while(1){
+  bool finalizado = false;
+	//TODO cambiar la condicion a que le juego siga?¿
+	while(!finalizado){
 		if(nuevo_turno){
 			//Establecemos una alarma para cambiar al siguiente tunro en un futuro
 			alarm(TURNO_SECS);
 			nuevo_turno = false;
 
-			//Comunicamos al jefe que es nuevo turno
-			close(fd_jefe[turno][0]);
+      mapa_restore(mapa);
+
+      //Comprobamos si hay un ganador
+      int p,q;
+      int auxigan = 0;
+      for(p = 0; p < N_EQUIPOS; ++p){
+        if(mapa->num_naves[p] == 0)
+          auxigan++;
+      }
+      if(auxigan == 0){
+        //Se han destruido todas las naves a la vez
+        for(q = 0; q < N_EQUIPOS; ++q){
+          close(fd_jefe[q][0]);
+    			strcpy(aux, "FIN");
+          write(fd_jefe[q][1], aux, sizeof(aux));
+        }
+        finalizado = true;
+        printf("Fin del juego, no hay ganadores!\n");
+      }
+      else if(auxigan == 1){
+        //Hay un ganador
+        for(q = 0; q < N_EQUIPOS; ++q){
+          close(fd_jefe[q][0]);
+    			strcpy(aux, "FIN");
+          write(fd_jefe[q][1], aux, sizeof(aux));
+        }
+        finalizado = true;
+        for(q = 0; q < N_EQUIPOS; ++q){
+          if(mapa->num_naves[q] != 0){
+            printf("Fin del juego, el ganador es el jugador %d. \n¡¡ENHORABUENA!!\n", q);
+          }
+        }
+      }
+      else{
+  			//Comunicamos al jefe que es nuevo turno pq no hay ganadores
+  			close(fd_jefe[turno][0]);
 
 
-			strcpy(aux, "TURNO");
-      write(fd_jefe[turno][1], aux, sizeof(aux));
+  			strcpy(aux, "TURNO");
+        write(fd_jefe[turno][1], aux, sizeof(aux));
+      }
 		}
+    /*No tengo nada claro este else, es para que no procese acciones tras encontrar
+    que ha finalizado la partida y se quede esperando sin comprobar finalizado*/
+    else{
+      //Recibimos la accion por la cola de mensajes de parte de las naves
+      char aux_cola[20];
+      if(mq_receive(queue, aux_cola, sizeof(aux_cola), NULL) == -1){
+        perror("mq_receive");
+    		mq_close(queue);
+    		mq_unlink(MQ_NAME);
+    		shm_unlink(SHM_MAP_NAME);
+    		exit(EXIT_FAILURE);
+      }
+      if(aux_cola[0] == 'M'){
+        /*Una vez llegados aquí, ya sabemos que la casilla de destino es valida,
+        pero volvemos a comprobar*/
+        int auxx_cola, auxy_cola, auxc_equipo, auxc_nave;
+        auxx_cola = atoi(aux_cola[6]);
+        auxy_cola = atoi(aux_cola[7]);
+        auxc_equipo = atoi(aux_cola[8]);
+        auxc_nave = atoi(aux_cola[9]);
+        //TODO supongo que la primera columna del mapa tendra iedentificador 0
+        if(auxx_cola >=0 && auxx_cola < MAPA_MAXX && auxy_cola >=0 && auxy_cola < MAPA_MAXY ){
+          if(mapa_is_casilla_vacia(mapa, auxy_cola, auxx_cola)){
+            mapa_clean_casilla(mapa, mapa->info_naves[auxc_equipo][auxc_nave].posy, mapa->info_naves[auxc_equipo][auxc_nave].posx);
+            //TODO ponerlo como funcion de mapa.h
+            mapa->info_naves[auxc_equipo][auxc_nave].posx = auxx_cola;
+            mapa->info_naves[auxc_equipo][auxc_nave].posy = auxy_cola;
+            mapa_set_nave(mapa, mapa->info_naves[auxc_equipo][auxc_nave]);
+          }
+        }
+        //sino no pasa nada, volvemos a ejecutar
+      }
+      else if(aux_cola[0] == 'A'){
+        /*Una vez llegados aquí, ya sabemos que la casilla de destino es valida,
+        pero volvemos a comprobar*/
+        int auxx_cola, auxy_cola, auxc_equipo, auxc_nave;
+        auxx_cola = atoi(aux_cola[7]);
+        auxy_cola = atoi(aux_cola[8]);
+        //EQuipo e identificado rde la nave que ordena
+        auxc_equipo = atoi(aux_cola[9]);
+        auxc_nave = atoi(aux_cola[10]);
+        //TODO supongo que la primera columna del mapa tendra iedentificador 0
+        if(auxx_cola >=0 && auxx_cola < MAPA_MAXX && auxy_cola >=0 && auxy_cola < MAPA_MAXY ){
+          tipo_nave nave_aux = mapa_get_nave(mapa, auxc_equipo, auxc_nave);
+          if(mapa_get_distancia(mapa, nave_aux.posy, nave_aux.posx, auxy_cola, auxx_cola)>ATAQUE_ALCANCE){
+            mapa_send_misil(mapa, nave_aux.posy, nave_aux.posx, auxy_cola, auxx_cola);
 
-    //Recibimos la accion por la cola de mensajes de parte de las naves
-    recibe_accion();
-		procesa_accion();
+            //TODO voy a poner todo esto seguido
+            if(mapa_is_casilla_vacia(mapa, auxy_cola, auxx_cola)){
+              mapa_set_symbol(mapa, auxy_cola, auxx_cola, SYMB_AGUA);
+            }
+            else{
+              //Si no es que hay una nave
+              tipo_casilla aux_casilla = mapa_get_casilla(mapa, auxy_cola, auxx_cola));
+              tipo_nave aux_nave_cas = mapa_get_nave(mapa,aux_casilla.equipo, aux_casilla.numNave);
+              //Si es fuego amigo no pasa nada
+              if(aux_nave_cas.equipo != auxc_equipo){
+              
+              }
+            }
+          }
+        }
+      }
+      else{
+        //Ha habido un error al recibir pues solo podemos recibir atacar y mover
+        perror("mq_receive");
+        mq_close(queue);
+        mq_unlink(MQ_NAME);
+        shm_unlink(SHM_MAP_NAME);
+        exit(EXIT_FAILURE);
+      }
+      usleep(100000);
+    }
 	}
 
 

@@ -43,5 +43,6 @@ void mapa_set_num_naves(tipo_mapa *mapa, int equipo, int numNaves);
 // Fija el símbolo 'symbol' en la posición posy, posx del mapa
 void mapa_set_symbol(tipo_mapa *mapa, int posy, int posx, char symbol);
 
+// TODO mapa_set_new_position_nave
 
 #endif /* SRC_MAPA_H_ */
