@@ -246,7 +246,7 @@ int main() {
 
                 aux_nave[10] = i + '0';
                 aux_nave[11] = j + '0';
-                printf("ACCION ATAQUE[%c%c] %c%c,%c%c->%c%c,%c%c\n", i,j, mapa->info_naves[i][j].posy, mapa->info_naves[i][j].posx, aux_nave[6],aux_nave[7],aux_nave[8], aux_nave[9]);
+                printf("ACCION ATAQUE[%c%d] %c%c,%c%c->%c%c,%c%c\n", symbol_equipos[i],j, mapa->info_naves[i][j].posy, mapa->info_naves[i][j].posx, aux_nave[6],aux_nave[7],aux_nave[8], aux_nave[9]);
 
                 printf("Nave %d/%d: enviando mensaje por cola de mensajes\n",i, j);
                 if(mq_send(queue, (char *)&aux_nave, sizeof(aux_nave), 1) == -1){
@@ -288,7 +288,7 @@ int main() {
 
               aux_nave[9] = i + '0';
               aux_nave[10] = j + '0';
-              printf("ACCION MOVER[%c%c] %c%c,%c%c->%c%c,%c%c\n", i,j, mapa->info_naves[i][j].posy, mapa->info_naves[i][j].posx, aux_nave[5],aux_nave[6],aux_nave[7], aux_nave[8]);
+              printf("ACCION MOVER[%c%d] %c%c,%c%c->%c%c,%c%c\n", symbol_equipos[i],j, mapa->info_naves[i][j].posy, mapa->info_naves[i][j].posx, aux_nave[5],aux_nave[6],aux_nave[7], aux_nave[8]);
 
               printf("Nave %d/%d: enviando mensaje por cola de mensajes\n",i, j);
 
