@@ -10,6 +10,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <errno.h>
 #include <time.h>
 
 #include <mapa.h>
@@ -17,9 +18,17 @@
 int turno;
 bool nuevo_turno;
 
+typedef struct{
+  int tipo; //0 para atacar 1 para MOVER
+  //TODO cambiar tipo a enum
+  int dirx;
+  int diry;
+  int nave;
+  int equipo;
+} ACCIONES;
+
 /*Para que cuando salgamos de una ejeccion con Ctrl+C se eliminen rodos los recursos*/
 void manejador_SIGINT(int sig){
-  printf("\nrecibida SIGINT\n");
 	shm_unlink(SHM_MAP_NAME);
 	mq_unlink(MQ_NAME);
   exit(EXIT_FAILURE);
@@ -73,7 +82,7 @@ void inicializar_mapa(tipo_mapa* mapa){
 	}
 }
 
-
+//TODO restableecer el valor de daño del misil a 10
 //TODO preguntar que se puede hacer global para hacer una funcion de controlde errores y liberar recursos
 int main() {
 	pid_t pid_jefe, pid_nave;
@@ -87,13 +96,12 @@ int main() {
   struct sigaction act;
 	int error;
 	//TODO creo que se puede usar unicamente aux al sser procesos distintos.
-	char aux[20], aux_jefe[20], aux_nave[20], aux_cola[20];
+	char aux[20], aux_jefe[20], aux_nave[20];
   bool finalizado = false;
-  int auxx_cola, auxy_cola, auxc_equipo, auxc_nave, aux_des;
-  char num_nave_aux;
+  int aux_des;
   bool encontrado;
-  int minimo, y, z, aux_minimo, x_dest, y_dest;
-
+  int minimo, y, z, aux_minimo, x_dest, y_dest, ui;
+  ACCIONES acc;
 	attributes.mq_flags = 0;
 	attributes.mq_maxmsg = 10;
 	attributes.mq_curmsgs = 0;
@@ -199,7 +207,7 @@ int main() {
 				else if(pid_nave == 0){
 					//Proceso de la nave
 					while(1){
-            printf("Nave %d/%d: esperando a recibir algo por pipe\n",i, j);
+        //    printf("Nave %d/%d: esperando a recibir algo por pipe\n",i, j);
 						close(fd_naves[i][j][1]);
 						error = read(fd_naves[i][j][0], aux_nave, sizeof(aux_nave));
 						if(error == -1){
@@ -237,19 +245,15 @@ int main() {
 							//Enviamos el mensaje a simulador
               //Solo enviamos el mensaje al simulador si se ha encontrado nave a la que disparar
               if(encontrado){
-  							strcpy(aux_nave, "ATACAR");
-                aux_nave[6] = ((int)x_dest/10)+ '0';
-                aux_nave[7] = x_dest%10 + '0';
-
-                aux_nave[8] = ((int)y_dest/10)+ '0';
-                aux_nave[9] = y_dest%10 + '0';
-
-                aux_nave[10] = i + '0';
-                aux_nave[11] = j + '0';
-                printf("ACCION ATAQUE[%c%d] %c%c,%c%c->%c%c,%c%c\n", symbol_equipos[i],j, mapa->info_naves[i][j].posy, mapa->info_naves[i][j].posx, aux_nave[6],aux_nave[7],aux_nave[8], aux_nave[9]);
+                acc.tipo = 0;
+                acc.dirx = x_dest;
+                acc.diry = y_dest;
+                acc.nave = j;
+                acc.equipo = i;
+                printf("ACCION ATAQUE[%c%d] %d,%d->%d,%d\n", symbol_equipos[i],j, mapa->info_naves[i][j].posy, mapa->info_naves[i][j].posx, acc.dirx, acc.diry);
 
                 printf("Nave %d/%d: enviando mensaje por cola de mensajes\n",i, j);
-                if(mq_send(queue, (char *)&aux_nave, sizeof(aux_nave), 1) == -1){
+                if(mq_send(queue, (char *)&acc, sizeof(acc), 1) == -1){
   								perror("mq_send");
                   mq_close(queue);
     							mq_unlink(MQ_NAME);
@@ -269,8 +273,9 @@ int main() {
               //Por si tiene mas movimiento que mapa
               aux_mov_posx = mapa_get_nave(mapa, i, j).posx;
               aux_mov_posy = mapa_get_nave(mapa, i, j).posy;
-              aux_movx = (rand()%MAPA_MAXX);
-              aux_movy = (rand()%MAPA_MAXY);
+              aux_movx = (rand()%MOVER_ALCANCE);
+              aux_movy = (rand()%MOVER_ALCANCE);
+              //TODO Eliminar la opcion de que mover seea el movimienot vacio (Qeu aux_mox y aux_movy no sean 0 las dos)
               while((mapa_get_distancia(mapa,aux_mov_posy, aux_mov_posx, aux_movy, aux_movx ) <= MOVER_ALCANCE)&&!mapa_is_casilla_vacia(mapa, aux_mov_posy + aux_movy, aux_mov_posx + aux_movx)){
                 //TODO No se si me va a generar el mismo numero, hacer ++ sino o algo asi
                 aux_movx = (rand()%MAPA_MAXX)%MOVER_ALCANCE;
@@ -280,19 +285,16 @@ int main() {
 							strcpy(aux_nave, "MOVER");
               //TODO hacer esto como funcion add_data_mover(aux_nave, aux_movx, aux_movy, i, j);
               //Quizas sea mejor aux_nave[6] = aux_movx y luego extraes el valor del char(con casteo), sin añadirle el +'0'
-              aux_nave[5] = ((int)aux_movx/10)+ '0';
-              aux_nave[6] = aux_movx%10 + '0';
+              acc.tipo = 1;
+              acc.dirx = aux_mov_posx + aux_movx;
+              acc.diry = aux_mov_posy + aux_movy;
+              acc.nave = j;
+              acc.equipo = i;
+              printf("ACCION MOVER[%c%d] %d,%d->%d,%d\n", symbol_equipos[i],j, mapa->info_naves[i][j].posx, mapa->info_naves[i][j].posy, acc.dirx, acc.diry);
 
-              aux_nave[7] = ((int)aux_movy/10)+ '0';
-              aux_nave[8] = aux_movy%10 + '0';
+            //  printf("Nave %d/%d: enviando mensaje por cola de mensajes\n",i, j);
 
-              aux_nave[9] = i + '0';
-              aux_nave[10] = j + '0';
-              printf("ACCION MOVER[%c%d] %c%c,%c%c->%c%c,%c%c\n", symbol_equipos[i],j, mapa->info_naves[i][j].posy, mapa->info_naves[i][j].posx, aux_nave[5],aux_nave[6],aux_nave[7], aux_nave[8]);
-
-              printf("Nave %d/%d: enviando mensaje por cola de mensajes\n",i, j);
-
-							if(mq_send(queue, (char *)&aux_nave, sizeof(aux_nave), 1) == -1){
+							if(mq_send(queue, (char *)&acc, sizeof(acc), 1) == -1){
 								perror("mq_send");
                 mq_close(queue);
   							mq_unlink(MQ_NAME);
@@ -324,7 +326,7 @@ int main() {
 
 
 			while(1){
-        printf("Jefe %d: esperando a recibir algo por pipe\n", i);
+    //    printf("Jefe %d: esperando a recibir algo por pipe\n", i);
 				close(fd_jefe[i][1]);
 				error = read(fd_jefe[i][0], aux, sizeof(aux));
 				if(error == -1){
@@ -347,9 +349,10 @@ int main() {
 				}
 				else if(aux[0] == 'D'){
 					//Destruir
-          aux_des = aux[8] - '0';
+          //TODO revisar este castero
+          aux_des = (int)aux[8];
 
-          printf("Jefe %d: recibido destruir nave %c\n", i, aux[8]);
+          printf("Jefe %d: recibido destruir nave %d\n", i, aux_des);
           close(fd_naves[i][aux_des][0]);
 					write(fd_naves[i][aux_des][1], aux, sizeof(aux));
 
@@ -360,17 +363,21 @@ int main() {
 
           printf("Jefe %d: recibido nuevo turno\n", i);
           //Elegimos la accion aleatoriamente(atacar o mover)
-					srand(time(NULL));
-					aux_accion = rand()%2;
-					if(aux_accion == 0)
-						strcpy(aux_jefe, "ATACAR");
-					else
-						strcpy(aux_jefe, "MOVER");
-					//Escribimos a una nave aleatoria que haga la accion
-					auxi_nave = rand()%3;
-					close(fd_naves[i][auxi_nave][0]);
-					write(fd_naves[i][auxi_nave][1], aux_jefe, sizeof(aux_jefe));
-
+          for(ui = 0; ui < 2; ui++){
+          //  printf("Generando accion %d del jefe %d\n",ui, i );
+            usleep(10);
+  					srand(time(NULL) + ui);
+  					aux_accion = rand()%2;
+  					if(aux_accion == 0)
+  						strcpy(aux_jefe, "ATACAR");
+  					else
+  						strcpy(aux_jefe, "MOVER");
+  					//Escribimos a una nave aleatoria que haga la accion
+  					auxi_nave = rand()%3;
+  					close(fd_naves[i][auxi_nave][0]);
+  					write(fd_naves[i][auxi_nave][1], aux_jefe, sizeof(aux_jefe));
+            printf("Enviada accion %d: %s del jefe %d a la nave %d\n",ui,aux_jefe, i, auxi_nave );
+          }
 				}
 				else{
 					//Se ha recibido algo inesperado pq o recibe FIn o Turno o Desgtruir
@@ -394,11 +401,17 @@ int main() {
 	sigemptyset(&act.sa_mask);
 	act.sa_handler = manejador_SIGALARM;
 
+  if (sigaction(SIGALRM, &act, NULL) < 0) {
+    perror("sigaction");
+		mq_close(queue);
+		mq_unlink(MQ_NAME);
+    exit(EXIT_FAILURE);
+  }
 	turno = 0;
 	nuevo_turno = true;
 
 	while(!finalizado){
-    printf("Nuevo procesamiento\n");
+    printf("Nuevo procesamiento por parte del simulador\n");
 		if(nuevo_turno){
 
       printf("Simulador: Nuevo turno\n");
@@ -453,7 +466,12 @@ int main() {
       //Recibimos la accion por la cola de mensajes de parte de las naves
 
       printf("Simulador: escuchando cola de mensajes\n");
-      if(mq_receive(queue, aux_cola, sizeof(aux_cola), NULL) == -1){
+      if(mq_receive(queue, (char*)&acc, sizeof(acc), NULL) == -1){
+        if (errno == EINTR ){
+          if (!nuevo_turno)
+            break;
+          continue;
+        }
         perror("mq_receive");
     		mq_close(queue);
     		mq_unlink(MQ_NAME);
@@ -462,67 +480,59 @@ int main() {
       }
 
       printf("Simulador: recibido cola de mensajes\n");
-      if(aux_cola[0] == 'M'){
-
-        printf("Simulador: ACCION MOVER: nave %c equipo %c hasta %c%c,%c%c\n",aux_cola[10], aux_cola[5], aux_cola[6],aux_cola[7],aux_cola[8],aux_cola[9]);
+      if(acc.tipo == 1){
+        //MOVER
+        printf("Simulador: ACCION MOVER: nave %d equipo %d hasta %d,%d\n",acc.nave, acc.equipo, acc.dirx, acc.diry);
         /*Una vez llegados aquí, ya sabemos que la casilla de destino es valida,
         pero volvemos a comprobar*/
-        auxx_cola = ((int)(aux_cola[5] - '0') * 10 + (int)(aux_cola[6] -'0'));
-        auxy_cola = ((int)(aux_cola[7] - '0') * 10 + (int)(aux_cola[8] -'0'));
-        auxc_equipo = (int)(aux_cola[9] - '0');
-        auxc_nave = (int)(aux_cola[10] - '0');
+
         //TODO supongo que la primera columna del mapa tendra iedentificador 0
-        if(auxx_cola >=0 && auxx_cola < MAPA_MAXX && auxy_cola >=0 && auxy_cola < MAPA_MAXY ){
-          if(mapa_is_casilla_vacia(mapa, auxy_cola, auxx_cola)){
-            mapa_clean_casilla(mapa, mapa->info_naves[auxc_equipo][auxc_nave].posy, mapa->info_naves[auxc_equipo][auxc_nave].posx);
+        if(acc.dirx >=0 && acc.dirx < MAPA_MAXX && acc.diry >=0 && acc.diry < MAPA_MAXY ){
+          if(mapa_is_casilla_vacia(mapa, acc.diry, acc.dirx)){
+            mapa_clean_casilla(mapa, mapa->info_naves[acc.equipo][acc.nave].posy, mapa->info_naves[acc.equipo][acc.nave].posx);
             //TODO ponerlo como funcion de mapa.h
-            mapa->info_naves[auxc_equipo][auxc_nave].posx = auxx_cola;
-            mapa->info_naves[auxc_equipo][auxc_nave].posy = auxy_cola;
-            mapa_set_nave(mapa, mapa->info_naves[auxc_equipo][auxc_nave]);
+            mapa->info_naves[acc.equipo][acc.nave].posx = acc.dirx;
+            mapa->info_naves[acc.equipo][acc.nave].posy = acc.diry;
+            mapa_set_nave(mapa, mapa->info_naves[acc.equipo][acc.nave]);
           }
         }
         //sino no pasa nada, volvemos a ejecutar
       }
-      else if(aux_cola[0] == 'A'){
-
-        printf("Simulador: ACCION ATACAR: nave %c equipo %c hacia %c%c,%c%c\n", aux_cola[11], aux_cola[10], aux_cola[6],aux_cola[7],aux_cola[8],aux_cola[9]);
+      else if(acc.tipo == 0){
+        //ATACAR
+        printf("Simulador: ACCION ATACAR: nave %d equipo %d hacia %d,%d\n", acc.nave, acc.equipo, acc.dirx, acc.diry);
 
         /*Una vez llegados aquí, ya sabemos que la casilla de destino es valida,
         pero volvemos a comprobar*/
-        auxx_cola = ((int)(aux_cola[6] - '0') * 10 + (int)(aux_cola[7] -'0'));
-        auxy_cola = ((int)(aux_cola[8] - '0') * 10 + (int)(aux_cola[9] -'0'));
 
-        //Datos de la nave que ataca
-        auxc_equipo = (int)(aux_cola[10] - '0');
-        auxc_nave = (int)(aux_cola[11] - '0');
         //TODO supongo que la primera columna del mapa tendra iedentificador 0
-        if(auxx_cola >=0 && auxx_cola < MAPA_MAXX && auxy_cola >=0 && auxy_cola < MAPA_MAXY ){
-          tipo_nave nave_aux = mapa_get_nave(mapa, auxc_equipo, auxc_nave);
-          if(mapa_get_distancia(mapa, nave_aux.posy, nave_aux.posx, auxy_cola, auxx_cola)>ATAQUE_ALCANCE){
-            mapa_send_misil(mapa, nave_aux.posy, nave_aux.posx, auxy_cola, auxx_cola);
+        if(acc.dirx >=0 && acc.dirx < MAPA_MAXX && acc.diry >=0 && acc.diry < MAPA_MAXY ){
+          tipo_nave nave_aux = mapa_get_nave(mapa, acc.equipo, acc.nave);
+          if(mapa_get_distancia(mapa, nave_aux.posy, nave_aux.posx, acc.diry, acc.dirx)<ATAQUE_ALCANCE){
+            mapa_send_misil(mapa, nave_aux.posy, nave_aux.posx, acc.diry, acc.dirx);
 
             //TODO voy a poner todo esto seguido
-            if(mapa_is_casilla_vacia(mapa, auxy_cola, auxx_cola)){
-              mapa_set_symbol(mapa, auxy_cola, auxx_cola, SYMB_AGUA);
+            //TODO no tendre que esperar el timepo que arda el misil?
+            if(mapa_is_casilla_vacia(mapa, acc.diry, acc.dirx)){
+              mapa_set_symbol(mapa, acc.diry, acc.dirx, SYMB_AGUA);
               printf("Simulador: el disparo acabó en agua, VAYA!\n");
 
             }
             else{
               //Si no es que hay una nave
-              tipo_casilla aux_casilla = mapa_get_casilla(mapa, auxy_cola, auxx_cola);
+              tipo_casilla aux_casilla = mapa_get_casilla(mapa, acc.diry, acc.dirx);
               //aux_nave_cas es la nave atacada
               tipo_nave aux_nave_cas = mapa_get_nave(mapa,aux_casilla.equipo, aux_casilla.numNave);
               //Si es fuego amigo no pasa nada
-              if(aux_nave_cas.equipo != auxc_equipo){
-                mapa->info_naves[auxc_equipo][auxc_nave].vida =-ATAQUE_DANO;
-                if(mapa->info_naves[auxc_equipo][auxc_nave].vida <= 0){
+              if(aux_nave_cas.equipo != acc.equipo){
+                mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida =-ATAQUE_DANO;
+                if(mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida <= 0){
                   //La nave debe ser destruida
-                  mapa_set_symbol(mapa, auxy_cola, auxx_cola, SYMB_DESTRUIDO);
+                  mapa_set_symbol(mapa, acc.diry, acc.dirx, SYMB_DESTRUIDO);
 
                   printf("Simulador: la nave %d del equipo %d ha sido destruida\n", aux_nave_cas.numNave, aux_nave_cas.equipo);
-                  num_nave_aux = auxc_nave + '0';
                   strcpy(aux, "DESTRUIR");
-                  aux[8] = num_nave_aux;
+                  aux[8] = (char)acc.nave;
                   //Comunicamos a la nave jefe correspondiente que su nave debe morir
                   close(fd_jefe[aux_nave_cas.equipo][0]);
 
@@ -535,7 +545,7 @@ int main() {
 
                 }
                 else{
-                  mapa_set_symbol(mapa, auxy_cola, auxx_cola, SYMB_TOCADO);
+                  mapa_set_symbol(mapa, acc.diry, acc.dirx, SYMB_TOCADO);
                   mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida =- 10;
                   printf("Simulador: la nave %d del equipo %d no ha sido destruida\n", aux_nave_cas.numNave, aux_nave_cas.equipo);
 
