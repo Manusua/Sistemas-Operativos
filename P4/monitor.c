@@ -32,7 +32,6 @@ void mapa_print(tipo_mapa *mapa)
 	screen_refresh();
 }
 
-
 int main() {
 
 	int fd_shm;
@@ -42,8 +41,8 @@ int main() {
 		perror("sem_open");
 		exit(EXIT_FAILURE);
 	}
+	printf("Esperando a que se inicialice el mapa desde el simulador\n" );
 	sem_wait(sem_moni);
-	printf("HOLI\n");
   fd_shm = shm_open(SHM_MAP_NAME, O_RDWR | O_CREAT,  S_IWUSR | S_IRUSR);
   if(fd_shm == -1){
     perror("shm_open");
@@ -69,8 +68,6 @@ int main() {
 
 		usleep(SCREEN_REFRESH);
 	}
-
-
 
 	screen_end();
 
