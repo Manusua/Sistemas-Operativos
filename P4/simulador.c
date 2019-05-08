@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <semaphore.h>
 
 #include <mapa.h>
 
@@ -100,6 +101,7 @@ int main() {
   bool finalizado = false;
   int aux_des;
   bool encontrado;
+  sem_t *sem_moni = NULL;
   int minimo, y, z, aux_minimo, x_dest, y_dest, ui;
   ACCIONES acc;
 	attributes.mq_flags = 0;
@@ -162,6 +164,22 @@ int main() {
 		shm_unlink(SHM_MAP_NAME);
 		exit(EXIT_FAILURE);
 	}
+  
+
+
+
+
+
+
+
+
+
+  //TODO importantisimo
+  //Deshacer el semaforo en todos los errores
+  if((sem_moni = sem_open(SHM_MONITOR, O_CREAT, S_IWUSR | S_IRUSR, 1)) == SEM_FAILED){
+    perror("sem_open");
+    exit(EXIT_FAILURE);
+  }
 
 //i va a ser el numeor de identificador(interno) de la nave jefe
 	for(i = 0; i < N_EQUIPOS;++i){//Abrimos la tubería con el simulador
@@ -396,7 +414,7 @@ int main() {
 	//Proceso del simulador
 	inicializar_mapa(mapa);
 	//Armamos el recibidor de la alarma
-
+//  sem_post(sem_moni);
   printf("Simulador: mapa y recursos iniciliazados\n");
 	sigemptyset(&act.sa_mask);
 	act.sa_handler = manejador_SIGALARM;
