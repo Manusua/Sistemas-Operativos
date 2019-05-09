@@ -56,5 +56,4 @@ typedef struct {
 
 enum t_Accion{ATACAR, MOVER, ERROR};
 
-
 #endif /* SRC_SIMULADOR_H_ */

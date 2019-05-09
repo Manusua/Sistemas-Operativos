@@ -98,7 +98,7 @@ int main() {
 	//Una cola por naves o una cola para todas las naves
 	struct mq_attr attributes;
 	int i, j,auxi_nave, aux_accion, fd_jefe[N_EQUIPOS][2], pipe_status, fd_naves[N_NAVES][2],
-  fd_shm_mapa, error_mapa, error, num_naves_vivas, aux_des, minimo, y, z, aux_minimo, ui, 
+  fd_shm_mapa, error_mapa, error, num_naves_vivas, aux_des, minimo, y, z, aux_minimo, ui,
   aux_num_buc, dest[2], aux_mov[2], aux_mov_pos[2];
   struct sigaction act;
 	char aux[20], aux_jefe[20], aux_nave[20];
@@ -108,7 +108,6 @@ int main() {
 	attributes.mq_maxmsg = 10;
 	attributes.mq_curmsgs = 0;
 	attributes.mq_msgsize = sizeof(aux);
-
   printf("Simulador: Inicializando recursos\n");
 
   sigemptyset(&(act.sa_mask));
@@ -602,9 +601,9 @@ int main() {
 
       printf("Simulador: recibido cola de mensajes\n");
       sem_wait(sem_mapa);
-      if(acc.tipo == ERROR){
+      if(acc.tipo == ERROR || !mapa->info_naves[acc.equipo][acc.nave].viva){
         //Error
-        //Se llega aqui si no ha encontrado a quien atacar
+        //Se llega aqui si no ha encontrado a quien atacar o la nave esta muerta
         printf("Simulador: ACCION ERROR\n");
       }
       else if(acc.tipo == MOVER){
@@ -642,13 +641,19 @@ int main() {
             }
             else{
               //Si no es que hay una nave
+
               tipo_casilla aux_casilla = mapa_get_casilla(mapa, acc.diry, acc.dirx);
               //aux_nave_cas es la nave atacada
               tipo_nave aux_nave_cas = mapa_get_nave(mapa,aux_casilla.equipo, aux_casilla.numNave);
               //Si es fuego amigo no pasa nada
               if(aux_nave_cas.equipo != acc.equipo){
-                mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida =-ATAQUE_DANO;
-                if(mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida <= 0){
+                mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida -= ATAQUE_DANO;
+                for(i = 0; i < N_EQUIPOS; ++i){
+                  for(j= 0; j < N_NAVES; ++j){
+                    printf("Vida nave %c%d: %d\n", symbol_equipos[i], j, mapa_get_nave(mapa, i, j).vida);
+                  }
+                }
+                  if(mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida <= 0){
                   //La nave debe ser destruida
                   mapa_set_symbol(mapa, acc.diry, acc.dirx, SYMB_DESTRUIDO);
 
@@ -669,7 +674,7 @@ int main() {
                 }
                 else{
                   mapa_set_symbol(mapa, acc.diry, acc.dirx, SYMB_TOCADO);
-                  mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida =- 10;
+                  mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida -= 10;
                   printf("Simulador: la nave %d del equipo %d no ha sido destruida, aun\n", aux_nave_cas.numNave, symbol_equipos[aux_nave_cas.equipo]);
 
                 }
