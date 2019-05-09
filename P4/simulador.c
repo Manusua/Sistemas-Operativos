@@ -477,6 +477,36 @@ int main() {
       printf("Simulador: restaurando mapa\n");
       mapa_restore(mapa);
 
+
+  			//Comunicamos al jefe que es nuevo turno pq no hay ganadores
+        printf("Simulador: no hay ningun ganador\n");
+
+        //Comprobamos que el jugador asignado sigue vivo
+        num_naves_vivas = 0;
+        turno --;
+        while(num_naves_vivas == 0){
+          num_naves_vivas = 0;
+          turno ++;
+          for(po = 0; po < N_EQUIPOS; po++){
+            if(mapa->info_naves[turno][po].viva)
+              num_naves_vivas++;
+          }
+        }
+
+  			close(fd_jefe[turno][0]);
+
+  			strcpy(aux, "TURNO");
+
+        printf("Simulador: enviando el nuevo turno al jefe\n");
+        write(fd_jefe[turno][1], aux, sizeof(aux));
+        printf("Simulador: enviado el nuevo turno al jefe\n");
+      }
+
+    /*No tengo nada claro este else, es para que no procese acciones tras encontrar
+    que ha finalizado la partida y se quede esperando sin comprobar finalizado*/
+    else{
+      //Recibimos la accion por la cola de mensajes de parte de las naves
+
       //Comprobamos si hay un ganador
       int p,q;
       int auxigan = 0;
@@ -484,6 +514,9 @@ int main() {
       for(p = 0; p < N_EQUIPOS; ++p){
         if(mapa->num_naves[p] != 0)
           auxigan++;
+      }
+      for (size_t yt = 0; yt < N_EQUIPOS; yt++) {
+        printf("Equipo %c, numero naves vivas %d\n", symbol_equipos[yt], mapa->num_naves[yt]);
       }
       if(auxigan == 0){
         //Se han destruido todas las naves a la vez
@@ -511,34 +544,6 @@ int main() {
         }
       }
       else{
-  			//Comunicamos al jefe que es nuevo turno pq no hay ganadores
-        printf("Simulador: no hay ningun ganador\n");
-
-        //Comprobamos que el jugador asignado sigue vivo
-        num_naves_vivas = 0;
-        turno --;
-        while(num_naves_vivas == 0){
-          num_naves_vivas = 0;
-          turno ++;
-          for(po = 0; po < N_EQUIPOS; po++){
-            if(mapa->info_naves[turno][po].viva)
-              num_naves_vivas++;
-          }
-        }
-
-  			close(fd_jefe[turno][0]);
-
-  			strcpy(aux, "TURNO");
-
-        printf("Simulador: enviando el nuevo turno al jefe\n");
-        write(fd_jefe[turno][1], aux, sizeof(aux));
-        printf("Simulador: enviado el nuevo turno al jefe\n");
-      }
-		}
-    /*No tengo nada claro este else, es para que no procese acciones tras encontrar
-    que ha finalizado la partida y se quede esperando sin comprobar finalizado*/
-    else{
-      //Recibimos la accion por la cola de mensajes de parte de las naves
 
       printf("Simulador: escuchando cola de mensajes\n");
       if(mq_receive(queue, (char*)&acc, sizeof(acc), NULL) == -1){
@@ -616,16 +621,20 @@ int main() {
                   write(fd_jefe[aux_nave_cas.equipo][1], aux, sizeof(aux));
 
                   //Actualizamos la informacion del mapa
-                  mapa_set_num_naves(mapa, aux_nave_cas.equipo, mapa->num_naves[aux_nave_cas.equipo]--);
+                  //TODO ver si esto tiene sentido con mapa_set_num_naves
+                  mapa->num_naves[aux_nave_cas.equipo]--;
                   mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].viva = false;
                   mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida = 0;
                   mapa_clean_casilla(mapa, mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].posy, mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].posx);
 
+
+                  //TODO igual hayq ue comprobar aqui la condicion de ganador o no? en plan, pq entonces no seria necesario
+                  //hacerlo cuando se recibe un nuevo turno
                 }
                 else{
                   mapa_set_symbol(mapa, acc.diry, acc.dirx, SYMB_TOCADO);
                   mapa->info_naves[aux_nave_cas.equipo][aux_nave_cas.numNave].vida =- 10;
-                  printf("Simulador: la nave %d del equipo %d no ha sido destruida\n", aux_nave_cas.numNave, symbol_equipos[aux_nave_cas.equipo]);
+                  printf("Simulador: la nave %d del equipo %d no ha sido destruida, aun\n", aux_nave_cas.numNave, symbol_equipos[aux_nave_cas.equipo]);
 
                 }
               }
@@ -646,6 +655,7 @@ int main() {
       printf("Simulador: esperando para procesar de nuevo\n");
       usleep(100000);
     }
+  }
 	}
 
   printf("Simulador: esperando a que accaben los hijos\n");
